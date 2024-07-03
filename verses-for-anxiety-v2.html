@@ -1,0 +1,278 @@
+<html><head><base href="https://anxietybible.com" /><title>Anxiety Bible - Verses for Peace</title><style>
+  body {
+    font-family: Arial, sans-serif;
+    line-height: 1.6;
+    color: #333;
+    max-width: 800px;
+    margin: 0 auto;
+    padding: 20px;
+    background-color: #f0f8ff;
+  }
+  h1 {
+    color: #4a4a4a;
+    text-align: center;
+  }
+  .verse-card {
+    background-color: white;
+    border-radius: 8px;
+    padding: 20px;
+    margin-bottom: 20px;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+  }
+  .verse-text {
+    font-size: 18px;
+    font-style: italic;
+    margin-bottom: 10px;
+  }
+  .verse-reference {
+    font-weight: bold;
+    text-align: right;
+  }
+  button {
+    background-color: #4CAF50;
+    border: none;
+    color: white;
+    padding: 10px 20px;
+    text-align: center;
+    text-decoration: none;
+    display: inline-block;
+    font-size: 16px;
+    margin: 4px 2px;
+    cursor: pointer;
+    border-radius: 4px;
+  }
+  button:hover {
+    background-color: #45a049;
+  }
+  button:disabled {
+    background-color: #cccccc;
+    cursor: not-allowed;
+  }
+  .status-message {
+    margin-top: 10px;
+    font-style: italic;
+    color: #666;
+  }
+  select {
+    margin-top: 10px;
+    padding: 5px;
+    font-size: 16px;
+  }
+  .background-audio {
+    margin-top: 20px;
+    padding: 10px;
+    background-color: #e0e0e0;
+    border-radius: 4px;
+  }
+  .volume-control {
+    width: 100%;
+    margin-top: 10px;
+  }
+</style>
+<script src="https://unpkg.com/react@17/umd/react.development.js"></script>
+<script src="https://unpkg.com/react-dom@17/umd/react-dom.development.js"></script>
+<script src="https://unpkg.com/babel-standalone@6/babel.min.js"></script>
+</head><body>
+
+<div id="root"></div>
+
+<script type="text/babel">
+const { useState, useEffect, useRef } = React;
+
+const verses = [
+  {
+    text: "Do not be anxious about anything, but in every situation, by prayer and petition, with thanksgiving, present your requests to God.",
+    reference: "Philippians 4:6"
+  },
+  {
+    text: "Cast all your anxiety on him because he cares for you.",
+    reference: "1 Peter 5:7"
+  },
+  {
+    text: "When anxiety was great within me, your consolation brought me joy.",
+    reference: "Psalm 94:19"
+  },
+  {
+    text: "Peace I leave with you; my peace I give you. I do not give to you as the world gives. Do not let your hearts be troubled and do not be afraid.",
+    reference: "John 14:27"
+  },
+  {
+    text: "Therefore do not worry about tomorrow, for tomorrow will worry about itself. Each day has enough trouble of its own.",
+    reference: "Matthew 6:34"
+  }
+];
+
+function App() {
+  const [currentVerseIndex, setCurrentVerseIndex] = useState(0);
+  const [playing, setPlaying] = useState(false);
+  const [statusMessage, setStatusMessage] = useState('');
+  const [audioSupported, setAudioSupported] = useState(true);
+  const [voices, setVoices] = useState([]);
+  const [selectedVoice, setSelectedVoice] = useState(null);
+  const [backgroundAudioPlaying, setBackgroundAudioPlaying] = useState(false);
+  const [backgroundVolume, setBackgroundVolume] = useState(0.5);
+
+  const currentVerse = verses[currentVerseIndex];
+  const utteranceRef = useRef(null);
+  const playingRef = useRef(false);
+  const audioRef = useRef(new Audio('https://www.soundjay.com/nature/sounds/river-1.mp3'));
+
+  useEffect(() => {
+    if ('speechSynthesis' in window) {
+      const loadVoices = () => {
+        const availableVoices = window.speechSynthesis.getVoices();
+        setVoices(availableVoices);
+        const samanthaVoice = availableVoices.find(voice => voice.name.toLowerCase().includes('samantha'));
+        if (samanthaVoice) {
+          setSelectedVoice(samanthaVoice);
+        } else if (availableVoices.length > 0) {
+          setSelectedVoice(availableVoices[0]);
+        }
+      };
+
+      loadVoices();
+      if (speechSynthesis.onvoiceschanged !== undefined) {
+        speechSynthesis.onvoiceschanged = loadVoices;
+      }
+    } else {
+      setAudioSupported(false);
+      setStatusMessage('Text-to-speech is not supported in your browser.');
+    }
+
+    audioRef.current.loop = true;
+    return () => {
+      audioRef.current.pause();
+    };
+  }, []);
+
+  useEffect(() => {
+    playingRef.current = playing;
+  }, [playing]);
+
+  useEffect(() => {
+    audioRef.current.volume = backgroundVolume;
+  }, [backgroundVolume]);
+
+  const speakVerse = () => {
+    if (!audioSupported) {
+      setStatusMessage('Text-to-speech is not supported in your browser.');
+      return;
+    }
+
+    setPlaying(true);
+    setStatusMessage('Speaking...');
+
+    const textToSpeak = `${currentVerse.text} ${currentVerse.reference}`;
+
+    const speakUtterance = () => {
+      utteranceRef.current = new SpeechSynthesisUtterance(textToSpeak);
+      
+      if (selectedVoice) {
+        utteranceRef.current.voice = selectedVoice;
+      }
+
+      utteranceRef.current.onend = () => {
+        if (playingRef.current) {
+          speakUtterance();
+        } else {
+          setStatusMessage('Finished speaking.');
+        }
+      };
+
+      utteranceRef.current.onerror = (event) => {
+        setPlaying(false);
+        setStatusMessage(`Error occurred: ${event.error}`);
+      };
+
+      window.speechSynthesis.speak(utteranceRef.current);
+    };
+
+    // Cancel any ongoing speech
+    window.speechSynthesis.cancel();
+
+    // Start speaking
+    speakUtterance();
+  };
+
+  const stopSpeaking = () => {
+    if (audioSupported) {
+      window.speechSynthesis.cancel();
+    }
+    setPlaying(false);
+    setStatusMessage('Speech stopped.');
+  };
+
+  const nextVerse = () => {
+    stopSpeaking();
+    setCurrentVerseIndex((prevIndex) => (prevIndex + 1) % verses.length);
+  };
+
+  const prevVerse = () => {
+    stopSpeaking();
+    setCurrentVerseIndex((prevIndex) => (prevIndex - 1 + verses.length) % verses.length);
+  };
+
+  const handleVoiceChange = (event) => {
+    const voice = voices.find(v => v.name === event.target.value);
+    setSelectedVoice(voice);
+  };
+
+  const toggleBackgroundAudio = () => {
+    if (backgroundAudioPlaying) {
+      audioRef.current.pause();
+    } else {
+      audioRef.current.play();
+    }
+    setBackgroundAudioPlaying(!backgroundAudioPlaying);
+  };
+
+  const handleVolumeChange = (event) => {
+    setBackgroundVolume(parseFloat(event.target.value));
+  };
+
+  return (
+    <div>
+      <h1>Bible Verses for Anxiety</h1>
+      <div className="verse-card">
+        <p className="verse-text">{currentVerse.text}</p>
+        <p className="verse-reference">{currentVerse.reference}</p>
+        <button onClick={playing ? stopSpeaking : speakVerse} disabled={!audioSupported}>
+          {playing ? 'Stop' : 'Listen'}
+        </button>
+        <p className="status-message">{statusMessage}</p>
+        {voices.length > 0 && (
+          <select onChange={handleVoiceChange} value={selectedVoice ? selectedVoice.name : ''}>
+            {voices.map((voice) => (
+              <option key={voice.name} value={voice.name}>
+                {voice.name} ({voice.lang})
+              </option>
+            ))}
+          </select>
+        )}
+      </div>
+      <div>
+        <button onClick={prevVerse}>Previous Verse</button>
+        <button onClick={nextVerse}>Next Verse</button>
+      </div>
+      <div className="background-audio">
+        <button onClick={toggleBackgroundAudio}>
+          {backgroundAudioPlaying ? 'Pause' : 'Play'} River Sound
+        </button>
+        <input
+          type="range"
+          min="0"
+          max="1"
+          step="0.1"
+          value={backgroundVolume}
+          onChange={handleVolumeChange}
+          className="volume-control"
+        />
+      </div>
+    </div>
+  );
+}
+
+ReactDOM.render(<App />, document.getElementById('root'));
+</script>
+
+</body></html>
